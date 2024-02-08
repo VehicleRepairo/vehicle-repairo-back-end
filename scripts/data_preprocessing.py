@@ -18,12 +18,13 @@ ohe = OneHotEncoder()
 
 #Storing one-hot encoded categorical values
 category_features = ohe.fit_transform(df[["brand", "model", "engine_type"]]).toarray()
+#print(category_features)
 
-#Combining converted arrays of one-hot encoded values to one
-np.array(category_features).ravel()
+#Storing one-hot encoded columns into a new dataframe
+df_encoded = pd.concat([df, pd.DataFrame(category_features, columns=ohe.get_feature_names_out(["brand", "model", "engine_type"]))], axis=1)
 
-#Storing the one-hot coded changes in the dataframe
-pd.DataFrame(category_features)
+#Dropping the categorical columns from the new dataframe
+df_encoded.drop(columns=["brand", "model", "engine_type"], inplace=True)
 
 #Storing service types in a variable
 service_types = ['oil_filter', 'engine_oil', 'washer_plug_drain', 'dust_and_pollen_filter', 'wheel_alignment_and_balancing'
@@ -31,10 +32,10 @@ service_types = ['oil_filter', 'engine_oil', 'washer_plug_drain', 'dust_and_poll
                 'brake_pads', 'clutch', 'coolant']
 
 #Converting service types from int to bool
-df[service_types] = df[service_types].astype(bool)
+df_encoded[service_types] = df[service_types].astype(bool)
 
 #Previewing pre-processed data
-#print(df.columns)
-print(df.head())
-#print(df.info())
+#print(df_encoded.columns)
+#print(df_encoded.head())
+print(df_encoded.info())
 #print(df.describe()) 
