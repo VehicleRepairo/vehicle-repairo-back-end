@@ -1,7 +1,5 @@
 #Importing necessary libraries and dependencies
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 
@@ -45,6 +43,6 @@ df_encoded[encoded_columns] = df_encoded[encoded_columns].astype(bool)
 
 #Previewing pre-processed data
 #print(df_encoded.columns)
-print(df_encoded.head())
+#print(df_encoded.head())
 print(df_encoded.info())
 #print(df.describe()) 
