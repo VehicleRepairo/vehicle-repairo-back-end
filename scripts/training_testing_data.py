@@ -11,5 +11,4 @@ import pandas as pd
 
 #Renaming mileage range column to nearest thousandth mileage
 
-
-print(df.head)
+#print(df.head)

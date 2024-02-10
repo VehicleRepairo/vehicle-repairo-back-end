@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 
 #Setting up dataset path
-dataset_path = "../data/vehicle_maintenance_dataset.csv"
+#dataset_path = "../data/vehicle_maintenance_dataset.csv"
 #Reading the dataset file and storing it in a pandas data frame variable
-df = pd.read_csv(dataset_path)
+#df = pd.read_csv(dataset_path)
 
 #Finding out unique values in brand, model and engine type
 #print(df["brand"].unique())
