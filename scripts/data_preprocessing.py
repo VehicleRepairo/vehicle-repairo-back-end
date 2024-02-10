@@ -6,7 +6,7 @@ import numpy as np
 #Setting up dataset path
 dataset_path = "../data/vehicle_maintenance_dataset.csv"
 #Reading the dataset file and storing it in a pandas data frame variable
-df = pd.read_csv(dataset_path)
+df = pd.read_csv(dataset_path, header=0)
 
 #Renaming mileage range column to nearest thousandth mileage
 df.rename(columns={"mileage_range": "nearest_thousandth_mileage"}, inplace=True)
@@ -51,4 +51,4 @@ df_encoded[encoded_columns] = df_encoded[encoded_columns].astype(bool)
 #print(df.describe()) 
 
 #Storing pre-processed data in a csv
-#df_encoded.to_csv("../data/preprocessed_vehicle_maintenance_dataset.csv", index=True)
+df_encoded.to_csv("../data/preprocessed_vehicle_maintenance_dataset.csv", index=True)
