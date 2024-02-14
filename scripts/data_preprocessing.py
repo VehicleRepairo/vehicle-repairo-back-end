@@ -34,6 +34,12 @@ service_types = ['oil_filter', 'engine_oil', 'washer_plug_drain', 'dust_and_poll
                 ,'air_clean_filter', 'fuel_filter', 'spark_plug', 'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid',
                 'brake_pads', 'clutch', 'coolant']
 
+#print('\nChecking number of classifiers in service types\n')
+
+#Finding out the number of classes in the service types
+#for service in service_types:
+#   print(service, ':', df[service].unique())
+
 #Storing one-hot encoded columns in a variabel
 encoded_columns = ['brand_honda', 'brand_toyota', 'model_amaze', 'model_city', 'model_fortuner', 'model_jazz', 'engine_type_diesel'           
                 ,'engine_type_petrol']
@@ -43,6 +49,8 @@ df_encoded[service_types] = df[service_types].astype(bool)
 
 #Converting encoded columns from float to bool
 df_encoded[encoded_columns] = df_encoded[encoded_columns].astype(bool)
+
+#Finding out unique values in brand, model and engine type
 
 #Previewing pre-processed data
 #print(df_encoded.columns)
