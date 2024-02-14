@@ -51,4 +51,4 @@ df_encoded[encoded_columns] = df_encoded[encoded_columns].astype(bool)
 #print(df.describe()) 
 
 #Storing pre-processed data in a csv
-df_encoded.to_csv("../data/preprocessed_vehicle_maintenance_dataset.csv", index=True)
+#df_encoded.to_csv("../data/preprocessed_vehicle_maintenance_dataset.csv", index=True)
