@@ -4,11 +4,16 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv,find_dotenv
 from scripts.entities.mechanic import Mechanic
+from scripts.entities.vehicle import Vehicle
+from flask_cors import CORS
+
+
 load_dotenv(find_dotenv())
 password = os.environ.get("MONGODB_PWD")
 
 
 app = Flask(__name__)
+CORS(app) 
 client = MongoClient(f"mongodb+srv://devindhigurusinghe:{password}.@cluster1.k3fvpdq.mongodb.net/")
 db = client['test']
 mechanics_collection = db['mechanic']
@@ -67,6 +72,75 @@ def create_mechanic():
     print(new_mechanic)
 
     return jsonify({"message": "Mechanic created successfully"}), 201
+
+
+@app.route('/vehicle', methods=['POST'])
+def create_vehicle():
+    # Extract data from the request
+    data = request.json
+
+    # Create a new mechanic document
+    new_vehicle = Vehicle(
+    vehicle_type=data.get('vehicle_type'),
+    Brand=data.get('Brand'),
+    Model=data.get('Model'),
+    Engine_type=data.get('Engine_type'),
+    mileage =data.get('mileage'),
+    firebase_uid = data.get('firebase_uid')
+)
+
+
+    # Save the new mechanic document to the database
+    new_vehicle.save()
+    print(new_vehicle)
+
+    return jsonify({"message": "vehicle created successfully"}), 201
+
+@app.route('/vehicle/<firebase_uid>', methods=['PATCH'])
+def update_vehicle(firebase_uid):
+    # Extract data from the request
+    data = request.json
+
+    # Retrieve the vehicle document by firebase_UID
+    vehicle = Vehicle.objects(firebase_uid=firebase_uid).first()
+
+    if not vehicle:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    # Retrieve the current mileage and add the new mileage
+    current_mileage = vehicle.mileage
+    new_mileage = data.get('mileage')
+
+    if new_mileage is None:
+        return jsonify({"error": "New mileage value is missing"}), 400
+
+    total_mileage = current_mileage + new_mileage
+
+    # Update the vehicle document with the new total mileage
+    vehicle.mileage = total_mileage
+    vehicle.save()
+
+    return jsonify({"message": f"Mileage updated successfully. New total mileage: {total_mileage}"}), 200
+
+
+@app.route('/mileage/<firebase_uid>', methods=['PATCH'])
+def update_mileage(firebase_uid):
+    # Extract data from the request
+    data = request.json
+
+    # Retrieve the vehicle document by firebase_UID
+    vehicle = Vehicle.objects(firebase_uid=firebase_uid).first()
+
+    if not vehicle:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    # Update the vehicle document with the new total mileage
+    vehicle.mileage = data.get('mileage')
+    vehicle.save()
+
+    return jsonify({"message": f"Mileage updated successfully. Total mileage: {vehicle.mileage}"}), 200
+
+
     
 
 if __name__ == '__main__':
