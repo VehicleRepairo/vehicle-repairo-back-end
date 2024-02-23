@@ -49,7 +49,7 @@ for service_type in service_types:
 
 #Loop to print accuracy score of each model
 #for service_type, accuracy in accuracy_scores.items():
-#    print(f"{service_type}: {accuracy}")
+    print(f"{service_type}: {accuracy}")
 
 #Precision dictionary to store the precision scores of each model
 precision_scores = {}
@@ -59,11 +59,11 @@ for service_type in service_types:
     precision = precision_score(y_test[service_type], predictions[service_type])
     precision_scores[service_type] = precision
 
-#print('\nPrecision for each service type model: \n')
+print('\nPrecision for each service type model: \n')
 
 #Loop to print precision score of each model
-#for service_type, precision in precision_scores.items():
-#    print(f"{service_type}: {precision}")
+for service_type, precision in precision_scores.items():
+    print(f"{service_type}: {precision}")
 
 #Recall dictionary to store the recall scores of each model
 recall_scores = {}
@@ -90,5 +90,5 @@ for service_type in service_types:
 print('\nF1 for each service type model: \n')
 
 #Loop to print f1 score of each model
-for service_type, f1 in f1_scores.items():
-    print(f"{service_type}: {f1}")
+#for service_type, f1 in f1_scores.items():
+#    print(f"{service_type}: {f1}")
