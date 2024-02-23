@@ -2,13 +2,35 @@ from flask import Flask, request
 from flask_restful import Resource, Api
 from pymongo import MongoClient
 from bson import ObjectId
+from dotenv import load_dotenv, find_dotenv
 import json
 
 app = Flask(__name__)
 api = Api(app)
 
-# Connect to MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+#Setting up the MongoDB connection
+connection_string = "mongodb+srv://nanthushan:nanthushan123@vehiclerepairo.rprebky.mongodb.net/?retryWrites=true&w=majority&appName=VehicleRepairo"
+client = MongoClient(connection_string)
+
+db = client.VehicleRepairoDb
+
+appointments_collection = db.appointments
+
+def create_appointment():
+    user = []
+    vehicle_brand = []
+    vehicle_model = []
+    Date_of_appointment = []
+    Appointment_time = []
+    Service_required = []
+    
+    #for user, vehicle_brand, vehicle_model, Date_of_appointment, Appointment_time, Service_required in :
+     #   appointments_collection.insert_one()
+
+
+create_appointment()
+
+"""
 db = client['VehicleRepairo']
 
 # Define collections
@@ -56,3 +78,4 @@ api.add_resource(AppointmentResource, '/appointment/<string:appointment_id>')
 
 if __name__ == '__main__':
     app.run(debug=True)
+"""
