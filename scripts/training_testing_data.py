@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.model_selection import GridSearchCV
 
 #Setting up pre-processed dataset path
 dataset_path = "../data/preprocessed_vehicle_maintenance_dataset.csv"
@@ -28,14 +29,47 @@ models = {}
 
 #Loop to run each service type model
 for service_type in service_types:
-    model = LogisticRegression(max_iter=10000)
-    model.fit(X_train, y_train[service_type])
-    models[service_type] = model
+
+    if service_type == 'air_clean_filter':
+        model = LogisticRegression()
+        hyper_parameters = {
+            'C': [1,5,10,20,40],
+            'max_iter': [1000,10000,100000]
+        }
+
+        grid_classifier = GridSearchCV(model, hyper_parameters, cv=5)
+
+        grid_classifier.fit(X_train, y_train[service_type])
+
+        print('Results for air_clean_filter:')
+        print('Best hyperparameters:', grid_classifier.best_params_)
+        print('Best cross-validation score:', grid_classifier.best_score_)
+
+
+        predictions = {}
+        predictions[service_type] = grid_classifier.predict(X_test)
+
+        accuracy_scores ={}
+        accuracy = accuracy_score(y_test[service_type], predictions[service_type])
+        accuracy_scores[service_type] = accuracy
+
+        print(f"{service_type}: {accuracy}")
+
+'''   
+    else:
+        model = LogisticRegression(max_iter=10000)
+        model.fit(X_train, y_train[service_type])
+        models[service_type] = model
 
 #Predictions dictionary to store the output of each model and evaluate its metrics
 predictions = {}
 for service_type in service_types:
-    predictions[service_type] = models[service_type].predict(X_test)
+
+    if service_type == 'air_clean_filter':
+        print('hi')
+    
+    else:
+        predictions[service_type] = models[service_type].predict(X_test)
 
 #Accuracy dictionary to store the accuracy scores of each model
 accuracy_scores = {}
@@ -45,11 +79,12 @@ for service_type in service_types:
     accuracy = accuracy_score(y_test[service_type], predictions[service_type])
     accuracy_scores[service_type] = accuracy
 
-#print('\nAccuracy for each service type model: \n')
+print('\nAccuracy for each service type model: \n')
 
 #Loop to print accuracy score of each model
-#for service_type, accuracy in accuracy_scores.items():
+for service_type, accuracy in accuracy_scores.items():
     print(f"{service_type}: {accuracy}")
+
 
 #Precision dictionary to store the precision scores of each model
 precision_scores = {}
@@ -73,11 +108,11 @@ for service_type in service_types:
     recall = recall_score(y_test[service_type], predictions[service_type])
     recall_scores[service_type] = recall
 
-#print('\nRecall for each service type model: \n')
+print('\nRecall for each service type model: \n')
 
 #Loop to print recall score of each model
-#for service_type, recall in recall_scores.items():
-#    print(f"{service_type}: {recall}")
+for service_type, recall in recall_scores.items():
+    print(f"{service_type}: {recall}")
 
 #Recall dictionary to store the recall scores of each model
 f1_scores = {}
@@ -90,5 +125,6 @@ for service_type in service_types:
 print('\nF1 for each service type model: \n')
 
 #Loop to print f1 score of each model
-#for service_type, f1 in f1_scores.items():
-#    print(f"{service_type}: {f1}")
+for service_type, f1 in f1_scores.items():
+    print(f"{service_type}: {f1}")
+'''
