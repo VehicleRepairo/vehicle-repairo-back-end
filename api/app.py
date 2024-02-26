@@ -3,8 +3,8 @@ from mongoengine import connect
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv,find_dotenv
-from scripts.entities.mechanic import Mechanic
-from scripts.entities.vehicle import Vehicle
+from models.entities.mechanic import Mechanic
+from models.entities.vehicle import Vehicle
 from flask_cors import CORS
 
 
