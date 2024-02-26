@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 #Setting up pre-processed dataset path
 dataset_path = "../data/preprocessed_vehicle_maintenance_dataset.csv"
@@ -36,10 +36,12 @@ for service_type in service_types:
         model = LogisticRegression(max_iter=20000)
         
         
-        #Grid Search CV
+        #Defining grid search hyper parameters
         grid_search_hyperparameters = {
             'C': [1,5,10,20],
-            'solver': ['liblinear', 'saga']
+            'solver': ['liblinear', 'saga' ] #'sag', 'newton-cg', 'lbfgs' (tried these as well)
+
+            #tried penalty:['l1', 'l2', 'elasticnet'] no impact
         }
 
         grid_classifier = GridSearchCV(model, grid_search_hyperparameters, cv=5)
@@ -47,7 +49,7 @@ for service_type in service_types:
         grid_classifier.fit(X_train, y_train[service_type])
 
         best_hyperparameters = grid_classifier.best_params_
-
+        
         print('Best grid hyperparameters for', service_type, ':' , best_hyperparameters)
         print('Best grid cross-validation score for', service_type, ':' , grid_classifier.best_score_)
 
@@ -56,7 +58,8 @@ for service_type in service_types:
         accuracy_scores[service_type] = accuracy
 
         print(f"{service_type}: {accuracy}")
-
+        
+        
 '''   
     else:
         model = LogisticRegression(max_iter=10000)
