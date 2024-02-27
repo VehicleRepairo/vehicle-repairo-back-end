@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv,find_dotenv
 from models.entities.mechanic import Mechanic
 from models.entities.vehicle import Vehicle
+from geopy.geocoders import Nominatim
 from flask_cors import CORS
 
 
@@ -139,6 +140,36 @@ def update_mileage(firebase_uid):
     vehicle.save()
 
     return jsonify({"message": f"Mileage updated successfully. Total mileage: {vehicle.mileage}"}), 200
+
+#convert address to coordinates
+@app.route('/profile', methods=['POST'])
+def convert_address_to_coordinates():
+    # Extract data from the request
+    data = request.json
+    address = data.get('address')
+    firebase_uid = data.get('firebase_uid')
+
+    # Use geopy to convert address to coordinates
+    geolocator = Nominatim(user_agent="GetLoc")
+    location = geolocator.geocode(address)
+    print(location)
+
+    if location:
+        latitude = location.latitude
+        longitude = location.longitude
+
+        # Save the coordinates and firebase_uid to MongoDB
+        db['user_locations'].insert_one({
+            'firebase_uid': firebase_uid,
+            'coordinates': {
+                'type': 'Point',
+                'coordinates': [longitude, latitude]
+            }
+        })
+
+        return jsonify({"message": "Coordinates saved successfully"}), 201
+    else:
+        return jsonify({"error": "Failed to convert address to coordinates"}), 400
 
 
     
