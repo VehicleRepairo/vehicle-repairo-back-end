@@ -2,13 +2,37 @@ from flask import Flask, request
 from flask_restful import Resource, Api
 from pymongo import MongoClient
 from bson import ObjectId
+#from dotenv import load_dotenv, find_dotenv
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
 api = Api(app)
+CORS(app)
 
-# Connect to MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+#Setting up the MongoDB connection
+connection_string = "mongodb://localhost:27017"
+client = MongoClient(connection_string)
+
+db = client.VehicleRepairoDb
+
+appointments_collection = db.appointments
+
+def create_appointment():
+    user = ""
+    vehicle_brand = ""
+    vehicle = ""
+    Date_of_appointment = ""
+    Appointment_time = ""
+    Service_Required = ""
+    
+    #for user, vehicle_brand, vehicle_model, Date_of_appointment, Appointment_time, Service_required in :
+     #   appointments_collection.insert_one()
+
+
+create_appointment()
+
+
 db = client['VehicleRepairo']
 
 # Define collections
@@ -34,8 +58,10 @@ class AppointmentResource(Resource):
 
     def post(self):
         data = request.get_json()
-        appointment_id = appointments_collection.insert_one(data).inserted_id
-        return {'appointment_id': str(appointment_id)}, 201
+        appointment_id = create_appointment(data.get('user'), data.get('vehicle_brand'), data.get('vehicle'), 
+                                             data.get('Date_of_appointment'), data.get('Appointment_time'), 
+                                             data.get('Service_Required'))
+        return {'appointment_id': appointment_id}, 201
 
     def put(self, appointment_id):
         data = request.get_json()
@@ -52,7 +78,7 @@ class AppointmentResource(Resource):
         else:
             return {'message': 'Appointment not found'}, 404
         
-api.add_resource(AppointmentResource, '/appointment/<string:appointment_id>')
+api.add_resource(AppointmentResource, '/appointment')
 
 if __name__ == '__main__':
     app.run(debug=True)
