@@ -1,5 +1,6 @@
 #Importing necessary libraries and dependencies
 import pandas as pd
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -27,8 +28,12 @@ X_train, X_test, y_train, y_test = train_test_split(X, df[service_types], test_s
 #Models dictionary to store each service type regression model 
 models = {}
 
+#Predictions dictionary to store the output of each model and evaluate its metrics
 predictions = {}
+
+#Accuracy dictionary to store the accuracy scores of each model
 accuracy_scores ={}
+
 #Loop to run each service type model
 for service_type in service_types:
 
@@ -53,36 +58,19 @@ for service_type in service_types:
         print('Best grid hyperparameters for', service_type, ':' , best_hyperparameters)
         print('Best grid cross-validation score for', service_type, ':' , grid_classifier.best_score_)
 
+        models[service_type] = grid_classifier
         predictions[service_type] = grid_classifier.predict(X_test)
         accuracy = accuracy_score(y_test[service_type], predictions[service_type])
         accuracy_scores[service_type] = accuracy
 
-        print(f"{service_type}: {accuracy}")
-        
-        
-'''   
     else:
         model = LogisticRegression(max_iter=10000)
         model.fit(X_train, y_train[service_type])
+        
         models[service_type] = model
-
-#Predictions dictionary to store the output of each model and evaluate its metrics
-predictions = {}
-for service_type in service_types:
-
-    if service_type == 'air_clean_filter':
-        break
-    
-    else:
-        predictions[service_type] = models[service_type].predict(X_test)
-
-#Accuracy dictionary to store the accuracy scores of each model
-accuracy_scores = {}
-
-#Loop to calculate accuracy score of each model
-for service_type in service_types:
-    accuracy = accuracy_score(y_test[service_type], predictions[service_type])
-    accuracy_scores[service_type] = accuracy
+        predictions[service_type] = model.predict(X_test)
+        accuracy = accuracy_score(y_test[service_type], predictions[service_type])
+        accuracy_scores[service_type] = accuracy
 
 print('\nAccuracy for each service type model: \n')
 
@@ -91,8 +79,19 @@ for service_type, accuracy in accuracy_scores.items():
     print(f"{service_type}: {accuracy}")
 
 '''
+for service_type, model in models.items():
+    joblib.dump(model, f"../models/{service_type}.pkl")
+'''
 
 '''
+#Loop to calculate accuracy score of each model
+for service_type in service_types:
+    accuracy = accuracy_score(y_test[service_type], predictions[service_type])
+    accuracy_scores[service_type] = accuracy
+
+
+
+
 #Precision dictionary to store the precision scores of each model
 precision_scores = {}
 
