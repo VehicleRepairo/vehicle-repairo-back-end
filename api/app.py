@@ -147,32 +147,65 @@ def convert_address_to_coordinates():
     # Extract data from the request
     data = request.json
     address = data.get('address')
+    location = data.get('location')
     firebase_uid = data.get('firebase_uid')
 
     # Use geopy to convert address to coordinates
     geolocator = Nominatim(user_agent="GetLoc")
-    location = geolocator.geocode(address)
-    print(location)
+    geo_location = geolocator.geocode(address) if address else None
+    print(geo_location)
 
-    if location:
-        latitude = location.latitude
-        longitude = location.longitude
+    if geo_location:
+        latitude = geo_location.latitude
+        longitude = geo_location.longitude
 
-        # Save the coordinates and firebase_uid to MongoDB
-        db['user_locations'].insert_one({
-            'firebase_uid': firebase_uid,
-            'coordinates': {
+        # Check if firebase_uid exists
+        existing_user = db['user_locations'].find_one({'firebase_uid': firebase_uid})
+
+        update_data = {}
+
+        if existing_user:
+            # Update coordinates if firebase_uid exists
+            update_data['coordinates'] = {
                 'type': 'Point',
                 'coordinates': [longitude, latitude]
             }
-        })
 
-        return jsonify({"message": "Coordinates saved successfully"}), 201
+        if address:
+            update_data['Area'] = address
+
+        if location:
+            update_data['Address'] = location
+
+        if update_data:
+            db['user_locations'].update_one(
+                {'firebase_uid': firebase_uid},
+                {'$set': update_data}
+            )
+
+            return jsonify({"message": "Database updated successfully"}), 200
+        else:
+            return jsonify({"error": "No data provided to update"}), 400
     else:
         return jsonify({"error": "Failed to convert address to coordinates"}), 400
 
 
+@app.route('/location', methods=['POST'])
+def get_location():
+    data = request.json
+    uid = data.get('uid')
     
+    existing_user = db['user_locations'].find_one({'firebase_uid': uid})
+    
+    if existing_user:
+        city = existing_user.get('Area', '')
+        location = existing_user.get('Address', '')
+        return jsonify({"city": city, "address": location}), 200
+    else:
+        return jsonify({"message": "Enter your location"}), 404
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
