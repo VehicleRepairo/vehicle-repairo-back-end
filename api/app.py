@@ -3,18 +3,15 @@ from mongoengine import connect
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv,find_dotenv
-from Persistance.mechanic import Mechanic
-from Persistance.vehicle import Vehicle
+from models.entities.mechanic import Mechanic
+from models.entities.vehicle import Vehicle
 from geopy.geocoders import Nominatim
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask_cors import CORS
 from flask_restful import Resource,Api
-import json
 from bson import ObjectId
-
-
-
+import json
 
 load_dotenv(find_dotenv())
 password = os.environ.get("MONGODB_PWD")
@@ -28,7 +25,9 @@ api = Api(app)
 client = MongoClient(f"mongodb+srv://devindhigurusinghe:{password}.@cluster1.k3fvpdq.mongodb.net/")
 db = client['test']
 mechanics_collection = db['mechanic']
-# user_locations_collection = db['user_locations']
+collection = db['test_location']  # Replace 'mechanics' with your actual collection name
+mechanics_collection.create_index([("coordinates1", "2dsphere")])
+
 
 connect(host=f"mongodb+srv://devindhigurusinghe:{password}.@cluster1.k3fvpdq.mongodb.net/")
 appointments_collection = db['appointments']
@@ -78,22 +77,25 @@ class AppointmentResource(Resource):
             return {'message': 'Appointment not found'}, 404
 
 
+
+ #getting the nearest mechanics and their information from firebase
 @app.route('/nearest_mechanics', methods=['POST'])
 def get_nearest_mechanics():
     try:
         # Parse request data
         data = request.json
+        selected_value = data.get('selectedValue')
         user_longitude = data.get('location', {}).get('longitude')
         user_latitude = data.get('location', {}).get('latitude')
-        selected_value = data.get('selectedValue')
-        print(user_latitude,user_longitude)
-        # Check if user longitude, latitude, and selected value are provided
-        if not (user_longitude and user_latitude and selected_value):
-            return jsonify({"error": "User location and selected value are required"}), 400
+        print(user_latitude, user_longitude)
 
-        # Construct the MongoDB query
+        # Check if user longitude and latitude are provided
+        if not (user_longitude and user_latitude):
+            return jsonify({"error": "User location is required"}), 400
+
+        # Construct the MongoDB query to find all mechanics near the user's location
         query = {
-            "location": {
+            "coordinates1": {
                 "$near": {
                     "$geometry": {
                         "type": "Point",
@@ -101,34 +103,40 @@ def get_nearest_mechanics():
                     },
                     "$maxDistance": 30000  # 30 kilometers in meters
                 }
-            },
-            "category": selected_value
+            }
         }
 
-        # Execute the query
+        # Execute the query to find all mechanics near the user's location
         nearest_mechanics = mechanics_collection.find(query)
-        print(nearest_mechanics)
 
-        # Iterate through the mechanics and retrieve details from Firestore
-        mechanics_details = []
+        # Convert ObjectId to string representation in each document
+        mechanics_list = []
         for mechanic in nearest_mechanics:
-            firebase_uid = mechanic.get('firebase_uid')
-            if firebase_uid:
-                # Get details from Firestore using Firebase UID
-                mechanic_details = get_mechanic_details_from_firestore(firebase_uid,selected_value)
-                if mechanic_details:
-                    mechanics_details.append(mechanic_details)
+            mechanic['_id'] = str(mechanic['_id'])  # Convert ObjectId to string
+            
+            # Fetch additional mechanic details from Firestore
+            firestore_details = get_firestore_mechanic_details(mechanic['firebase_uid'])
+            
+            # Combine data from MongoDB and Firestore into a single response
+            combined_data = {
+                'name': firestore_details.get('fullName', 'N/A'),
+                'contact': firestore_details.get('contact', 'N/A'),
+                'profilepicurl': firestore_details.get('profilePicURL', 'N/A'),
+                'category': firestore_details.get('catergory', 'N/A'),
+                'location': mechanic.get('Area', 'N/A'),
+                'address': mechanic.get('Address', 'N/A'),
+                'uid': mechanic.get('firebase_uid', 'N/A')
+            }
+            
+            mechanics_list.append(combined_data)
 
-        if mechanics_details:
-            return jsonify(mechanics_details)
-        else:
-            return jsonify({"message": f"No mechanics found for category '{selected_value}' near your location"}), 404
+        # Return the list of mechanics with combined data as JSON response
+        return jsonify(mechanics_list)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
 
-from firebase_admin import firestore
-def get_mechanic_details_from_firestore(firebase_uid, selected_value, mechanics_array):
+def get_firestore_mechanic_details(firebase_uid):
     try:
         # Access Firestore client
         db = firestore.client()
@@ -143,19 +151,14 @@ def get_mechanic_details_from_firestore(firebase_uid, selected_value, mechanics_
         if doc.exists:
             # Get data from document
             mechanic_data = doc.to_dict()
-
-            # Convert both doc_type and selected_value to lowercase for case-insensitive comparison
-            doc_type_lowercase = mechanic_data.get('doc_type', '').lower()
-            selected_value_lowercase = selected_value.lower()
-
-            # Check if the lowercase document type matches the lowercase selected value
-            if doc_type_lowercase == selected_value_lowercase:
-                mechanics_array.append(mechanic_data)
-        else:
-            print(f"No mechanic found with Firebase UID: {firebase_uid}")
+            return mechanic_data
 
     except Exception as e:
         print(f"Error retrieving mechanic details from Firestore: {e}")
+
+    return {}  # Return an empty dictionary if mechanic details not found or error occurred
+
+
 
 
 @app.route('/mechanics', methods=['POST'])
@@ -247,6 +250,7 @@ def update_mileage(firebase_uid):
 
     return jsonify({"message": f"Mileage updated successfully. Total mileage: {vehicle.mileage}"}), 200
 
+
 # Convert address to coordinates
 @app.route('/profile', methods=['POST'])
 def convert_address_to_coordinates():
@@ -268,7 +272,7 @@ def convert_address_to_coordinates():
         existing_mechanic = mechanics_collection.find_one({'firebase_uid': firebase_uid})
 
         update_data = {
-            'coordinates': {
+            'coordinates1': {
                 'type': 'Point',
                 'coordinates': [longitude, latitude]
             },
@@ -289,9 +293,7 @@ def convert_address_to_coordinates():
             mechanics_collection.insert_one(update_data)
             return jsonify({"message": "New mechanic added successfully"}), 201
     else:
-        return jsonify({"error": "Failed to convert address to coordinates"}), 400
-
-
+        return jsonify({"error": "Failed to convert address to coordinates or address is not provided"}), 400
 
 
 @app.route('/location', methods=['POST'])
@@ -308,6 +310,46 @@ def get_location():
     else:
         return jsonify({"message": "Enter your location"}), 404
 
+
+
+#create appointment connected with vehicle database
+
+@app.route('/create_appointment', methods=['POST'])
+def create_appointment():
+    data = request.json
+    user_uid = data.get('user_uid')
+
+    # Check if user_uid exists in the vehicle collection
+    vehicle_data = db.vehicle.find_one({'user_uid': user_uid})
+    if not vehicle_data:
+        return jsonify({'error': 'User not found in the vehicle database'})
+
+    # Extract vehicle_brand and vehicle from vehicle_data
+    vehicle_brand = vehicle_data.get('vehicle_brand')
+    vehicle = vehicle_data.get('vehicle')
+
+    # Create appointment
+    appointment_data = {
+        'Appointments_time': data.get('Appointments_time'),
+        'Date_of_appointment': data.get('Date_of_appointment'),
+        'user_uid': user_uid,
+        'Service_Required': data.get('Service_Required'),
+        'vehicle_brand': vehicle_brand,
+        'vehicle': vehicle,
+        'Mech_uid': data.get('Mech_uid')
+    }
+
+    # Insert appointment into the appointment collection
+    appointment_id = db.appointment.insert_one(appointment_data).inserted_id
+
+    return jsonify({'success': True, 'appointment_id': str(appointment_id)})
+
+
+
+
+
+
+    
 
 
 
