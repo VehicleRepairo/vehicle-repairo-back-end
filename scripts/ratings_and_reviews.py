@@ -40,7 +40,7 @@ def get_user_input():
     comment = input("Enter your review/comment: ")
     return mechanic_id, rating, comment
 
-# Example usage
+
 if __name__ == "__main__":
     mechanic_id, rating, comment = get_user_input()
     add_review(mechanic_id, rating, comment)
@@ -54,5 +54,5 @@ if __name__ == "__main__":
     for review in reviews:
         print(f"Rating: {review['rating']}, Comment: {review['comment']}, Timestamp: {review['timestamp']}")
 
-    # Print average rating
+
     print("Average rating for mechanic", mechanic_id, ":", calculate_average_rating(mechanic_id))
