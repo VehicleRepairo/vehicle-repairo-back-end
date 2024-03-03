@@ -2,8 +2,8 @@ from pymongo import MongoClient
 
 # Connect to MongoDB
 client = MongoClient("mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
-db = client['Ratings_and_Reviews']
-mechanics_collection = db['mechanics']
+db = client['Vehicle_Repairo']
+mechanics_collection = db['mechanic_average_rating']
 
 # Function to get mechanic's average rating
 def get_mechanic_average_rating(mechanic_id):

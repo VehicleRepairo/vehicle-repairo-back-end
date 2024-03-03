@@ -3,7 +3,7 @@ from datetime import datetime
 
 # Connect to MongoDB
 client = MongoClient("mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
-db = client['Ratings_and_Reviews']
+db = client['Vehicle_Repairo']
 collection = db['ratings']
 
 # Function to add a new review
@@ -31,7 +31,7 @@ def calculate_average_rating(mechanic_id):
 # Function to update average rating for a mechanic
 def update_average_rating(mechanic_id):
     average_rating = calculate_average_rating(mechanic_id)
-    db.mechanics.update_one({'mechanic_id': mechanic_id}, {'$set': {'average_rating': average_rating}}, upsert=True)
+    db.mechanic_average_rating.update_one({'mechanic_id': mechanic_id}, {'$set': {'average_rating': average_rating}}, upsert=True)
 
 # Function to get ratings and review from the user
 def get_user_input():
