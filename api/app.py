@@ -3,34 +3,38 @@ from mongoengine import connect
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv,find_dotenv
-from models.entities.mechanic import Mechanic
-from models.entities.vehicle import Vehicle
+from Persistance.mechanic import Mechanic
+from Persistance.vehicle import Vehicle
 from geopy.geocoders import Nominatim
 import firebase_admin
 from firebase_admin import credentials, firestore
 from flask_cors import CORS
 from flask_restful import Resource,Api
 from bson import ObjectId
+from rake_nltk import Rake
+import nltk
+from Guidance import find_word_in_table
 import json
-
-load_dotenv(find_dotenv())
-password = os.environ.get("MONGODB_PWD")
-
+from ratings_and_reviews import calculate_average_rating, get_reviews
 
 app = Flask(__name__)
 CORS(app) 
 api = Api(app)
 
 #mongodb connection
-client = MongoClient(f"mongodb+srv://devindhigurusinghe:{password}.@cluster1.k3fvpdq.mongodb.net/")
-db = client['test']
+client = MongoClient("mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
+db = client['Vehicle_Repairo']
 mechanics_collection = db['mechanic']
-collection = db['test_location']  # Replace 'mechanics' with your actual collection name
+vehicle_collection = db['vehicle']
+appointments_collection = db['appointment']
+ratings_collection = db['ratings']
+users_collection = db['users']
+
 mechanics_collection.create_index([("coordinates1", "2dsphere")])
+appointments_collection.create_index({ "Mech_uid": 1 })
 
-
-connect(host=f"mongodb+srv://devindhigurusinghe:{password}.@cluster1.k3fvpdq.mongodb.net/")
-appointments_collection = db['appointments']
+mechanic_average_rating = db['mechanic_average_rating']
+connect(host=f"mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
 
 
 
@@ -38,17 +42,10 @@ appointments_collection = db['appointments']
 cred = credentials.Certificate("./vehicle-repairo-firebase-adminsdk-cmk26-3ac0077dd7.json")
 firebase_admin.initialize_app(cred)
 
-class AllAppointmentsResource(Resource):
-    def get(self):
-        appointments = appointments_collection.find()
-        if appointments:
-            return [json.loads(json.dumps(appointment, default=str)) for appointment in appointments], 200
-        else:
-            return {'message': 'No appointments found'}, 404
 
-api.add_resource(AllAppointmentsResource, '/appointment') 
 
 class AppointmentResource(Resource):
+
     def get(self, appointment_id):
         appointment = appointments_collection.find_one({'_id': ObjectId(appointment_id)})
         if appointment:
@@ -61,21 +58,7 @@ class AppointmentResource(Resource):
         appointment_id = appointments_collection.insert_one(data).inserted_id
         return {'appointment_id': str(appointment_id)}, 201
 
-    def put(self, appointment_id):
-        data = request.get_json()
-        result = appointments_collection.update_one({'_id': ObjectId(appointment_id)}, {'$set': data})
-        if result.modified_count > 0:
-            return {'message': 'Appointment updated successfully'}, 200
-        else:
-            return {'message': 'Appointment not found'}, 404
-        
-    def delete(self, _id):
-        result = appointments_collection.delete_one({'_id': ObjectId(_id)})
-        if result.deleted_count > 0:
-            return {'message': 'Appointment deleted successfully'}, 200
-        else:
-            return {'message': 'Appointment not found'}, 404
-
+   
 
 
  #getting the nearest mechanics and their information from firebase
@@ -108,6 +91,7 @@ def get_nearest_mechanics():
 
         # Execute the query to find all mechanics near the user's location
         nearest_mechanics = mechanics_collection.find(query)
+        
 
         # Convert ObjectId to string representation in each document
         mechanics_list = []
@@ -117,24 +101,33 @@ def get_nearest_mechanics():
             # Fetch additional mechanic details from Firestore
             firestore_details = get_firestore_mechanic_details(mechanic['firebase_uid'])
             
-            # Combine data from MongoDB and Firestore into a single response
-            combined_data = {
-                'name': firestore_details.get('fullName', 'N/A'),
-                'contact': firestore_details.get('contact', 'N/A'),
-                'profilepicurl': firestore_details.get('profilePicURL', 'N/A'),
-                'category': firestore_details.get('catergory', 'N/A'),
-                'location': mechanic.get('Area', 'N/A'),
-                'address': mechanic.get('Address', 'N/A'),
-                'uid': mechanic.get('firebase_uid', 'N/A')
-            }
+            # Check if the mechanic's category matches the selected value (case-insensitive comparison)
+            if selected_value.lower() == firestore_details.get('catergory', '').lower():
+                # Calculate average rating for this mechanic
+                mechanic_average_rating = calculate_average_rating(mechanic['mechanic_id'])
             
-            mechanics_list.append(combined_data)
+                # Combine data from MongoDB, Firestore, and calculated average rating into a single response
+                combined_data = {
+                    'name': firestore_details.get('fullName', 'N/A'),
+                    'contact': firestore_details.get('contact', 'N/A'),
+                    'profilepicurl': firestore_details.get('profilePicURL', 'N/A'),
+                    'category': firestore_details.get('catergory', 'N/A'),
+                    'location': mechanic.get('Area', 'N/A'),
+                    'address': mechanic.get('Address', 'N/A'),
+                    'uid': mechanic.get('firebase_uid', 'N/A'),
+                    'mech_id': mechanic.get('mechanic_id', 'N/A'),
+                    'average_rating': mechanic_average_rating
+                }
+            
+                mechanics_list.append(combined_data)
 
-        # Return the list of mechanics with combined data as JSON response
+        # Return the list of mechanics with combined data as JSON response in an array
         return jsonify(mechanics_list)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 
 def get_firestore_mechanic_details(firebase_uid):
     try:
@@ -160,65 +153,53 @@ def get_firestore_mechanic_details(firebase_uid):
 
 
 
-
-@app.route('/mechanics', methods=['POST'])
-def create_mechanic():
-    # Extract data from the request
-    data = request.json
-
-    # Create a new mechanic document
-    new_mechanic = Mechanic(
-    name=data.get('name'),
-    Area=data.get('Area'),
-    Contact=data.get('Contact'),
-    Type=data.get('Type'),
-    Reviews=data.get('Reviews', []),
-    location=data.get('location')
-)
-
-
-    # Save the new mechanic document to the database
-    new_mechanic.save()
-    print(new_mechanic)
-
-    return jsonify({"message": "Mechanic created successfully"}), 201
-
-
+#creating a vehicle
 @app.route('/vehicle', methods=['POST'])
 def create_vehicle():
     # Extract data from the request
     data = request.json
 
-    # Create a new mechanic document
+    # Create a new vehicle document
     new_vehicle = Vehicle(
-    vehicle_type=data.get('vehicle_type'),
-    Brand=data.get('Brand'),
-    Model=data.get('Model'),
-    Engine_type=data.get('Engine_type'),
-    mileage =data.get('mileage'),
-    firebase_uid = data.get('firebase_uid')
-)
+        vehicle_type=data.get('vehicle_type'),
+        Brand=data.get('Brand'),
+        Model=data.get('Model'),
+        Engine_type=data.get('Engine_type'),
+        mileage=data.get('mileage'),
+        firebase_uid=data.get('firebase_uid')
+    )
+
+    # Convert the new_vehicle object into a dictionary
+    vehicle_data = {
+        'vehicle_type': new_vehicle.vehicle_type,
+        'Brand': new_vehicle.Brand,
+        'Model': new_vehicle.Model,
+        'Engine_type': new_vehicle.Engine_type,
+        'mileage': new_vehicle.mileage,
+        'firebase_uid': new_vehicle.firebase_uid
+    }
+
+    # Insert the vehicle data into the vehicle collection
+    db.vehicle.insert_one(vehicle_data)
+
+    return jsonify({"message": "Vehicle created successfully"}), 201
 
 
-    # Save the new mechanic document to the database
-    new_vehicle.save()
-    print(new_vehicle)
 
-    return jsonify({"message": "vehicle created successfully"}), 201
-
+#change mileage
 @app.route('/vehicle/<firebase_uid>', methods=['PATCH'])
 def update_vehicle(firebase_uid):
     # Extract data from the request
     data = request.json
 
     # Retrieve the vehicle document by firebase_UID
-    vehicle = Vehicle.objects(firebase_uid=firebase_uid).first()
+    vehicle = vehicle_collection.find_one({"firebase_uid": firebase_uid})
 
     if not vehicle:
         return jsonify({"error": "Vehicle not found"}), 404
 
     # Retrieve the current mileage and add the new mileage
-    current_mileage = vehicle.mileage
+    current_mileage = vehicle.get('mileage', 0)
     new_mileage = data.get('mileage')
 
     if new_mileage is None:
@@ -227,33 +208,56 @@ def update_vehicle(firebase_uid):
     total_mileage = current_mileage + new_mileage
 
     # Update the vehicle document with the new total mileage
-    vehicle.mileage = total_mileage
-    vehicle.save()
+    vehicle_collection.update_one({"_id": ObjectId(vehicle['_id'])}, {"$set": {"mileage": total_mileage}})
 
     return jsonify({"message": f"Mileage updated successfully. New total mileage: {total_mileage}"}), 200
 
 
+
+#update total mileage
 @app.route('/mileage/<firebase_uid>', methods=['PATCH'])
 def update_mileage(firebase_uid):
     # Extract data from the request
     data = request.json
 
     # Retrieve the vehicle document by firebase_UID
-    vehicle = Vehicle.objects(firebase_uid=firebase_uid).first()
+    vehicle = vehicle_collection.find_one({"firebase_uid": firebase_uid})
 
     if not vehicle:
         return jsonify({"error": "Vehicle not found"}), 404
 
     # Update the vehicle document with the new total mileage
-    vehicle.mileage = data.get('mileage')
-    vehicle.save()
+    vehicle_collection.update_one({"_id": ObjectId(vehicle['_id'])}, {"$set": {"mileage": data.get('mileage')}})
 
-    return jsonify({"message": f"Mileage updated successfully. Total mileage: {vehicle.mileage}"}), 200
+    return jsonify({"message": f"Mileage updated successfully. Total mileage: {data.get('mileage')}"}), 200
 
 
-# Convert address to coordinates
+
+# Global variable to store the mechanic_id counter
+mechanic_id_counter = None
+
+def get_mechanic_id_counter():
+    global mechanic_id_counter
+    if mechanic_id_counter is None:
+        # Fetch the counter from the database
+        counter_doc = mechanics_collection.find_one({'_id2': 'mechanic_id_counter'})
+        if counter_doc:
+            mechanic_id_counter = counter_doc['value']
+        else:
+            # Initialize the counter if it doesn't exist
+            mechanic_id_counter = 0
+            mechanics_collection.insert_one({'_id2': 'mechanic_id_counter', 'value': mechanic_id_counter})
+    return mechanic_id_counter
+
+def increment_mechanic_id_counter():
+    global mechanic_id_counter
+    mechanic_id_counter += 1
+    mechanics_collection.update_one({'_id2': 'mechanic_id_counter'}, {'$set': {'value': mechanic_id_counter}})
+
 @app.route('/profile', methods=['POST'])
 def convert_address_to_coordinates():
+    global mechanic_id_counter  # Access the global variable
+
     # Extract data from the request
     data = request.json
     address = data.get('address')
@@ -268,10 +272,19 @@ def convert_address_to_coordinates():
         latitude = geo_location.latitude
         longitude = geo_location.longitude
 
+        # Get the next mechanic ID
+        mechanic_id_counter = get_mechanic_id_counter()
+        mechanic_id_counter += 1
+        mechanic_id = f"mech_{mechanic_id_counter}"
+        
+        # Increment the mechanic ID counter
+        increment_mechanic_id_counter()
+
         # Check if firebase_uid exists
         existing_mechanic = mechanics_collection.find_one({'firebase_uid': firebase_uid})
 
         update_data = {
+            'mechanic_id': mechanic_id,
             'coordinates1': {
                 'type': 'Point',
                 'coordinates': [longitude, latitude]
@@ -283,19 +296,22 @@ def convert_address_to_coordinates():
 
         if existing_mechanic:
             # Update existing mechanic document
+            update_data['mechanic_id'] = existing_mechanic['mechanic_id']  # Preserve existing mechanic_id
             mechanics_collection.update_one(
                 {'firebase_uid': firebase_uid},
                 {'$set': update_data}
             )
             return jsonify({"message": "Mechanic location updated successfully"}), 200
         else:
-            # Insert new mechanic document
+            # Insert new mechanic document with mechanic_id
             mechanics_collection.insert_one(update_data)
             return jsonify({"message": "New mechanic added successfully"}), 201
     else:
         return jsonify({"error": "Failed to convert address to coordinates or address is not provided"}), 400
 
 
+
+#getting mechanic location and id to update mechanic profile
 @app.route('/location', methods=['POST'])
 def get_location():
     data = request.json
@@ -306,54 +322,117 @@ def get_location():
     if existing_mechanic:
         city = existing_mechanic.get('Area', '')
         location = existing_mechanic.get('Address', '')
-        return jsonify({"city": city, "address": location}), 200
+        mech_id = existing_mechanic.get('mechanic_id')
+        return jsonify({"city": city, "address": location, "mechanic_id":mech_id}), 200
     else:
         return jsonify({"message": "Enter your location"}), 404
 
 
 
-#create appointment connected with vehicle database
-
+#create appointment 
 @app.route('/create_appointment', methods=['POST'])
 def create_appointment():
     data = request.json
     user_uid = data.get('user_uid')
+    print(user_uid)
 
-    # Check if user_uid exists in the vehicle collection
-    vehicle_data = db.vehicle.find_one({'user_uid': user_uid})
-    if not vehicle_data:
-        return jsonify({'error': 'User not found in the vehicle database'})
-
-    # Extract vehicle_brand and vehicle from vehicle_data
-    vehicle_brand = vehicle_data.get('vehicle_brand')
-    vehicle = vehicle_data.get('vehicle')
-
-    # Create appointment
     appointment_data = {
         'Appointments_time': data.get('Appointments_time'),
         'Date_of_appointment': data.get('Date_of_appointment'),
+        'Name':data.get('Name'),
         'user_uid': user_uid,
+        'contact': data.get('contact'),
         'Service_Required': data.get('Service_Required'),
-        'vehicle_brand': vehicle_brand,
-        'vehicle': vehicle,
-        'Mech_uid': data.get('Mech_uid')
+        'vehicle':data.get('vehicle') ,
+        'Mech_uid': data.get('Mech_uid'),
+        'Appointment_status':"Pending"
+
     }
 
-    # Insert appointment into the appointment collection
     appointment_id = db.appointment.insert_one(appointment_data).inserted_id
 
     return jsonify({'success': True, 'appointment_id': str(appointment_id)})
 
 
+#getting related mechanics appointments
+@app.route('/appointments/<mechanic_uid>', methods=['GET'])
+def get_appointments_by_mechanic_uid(mechanic_uid):
+    appointments = appointments_collection.find({'Mech_uid': mechanic_uid})
+    appointments_list = list(appointments)
+    for appointment in appointments_list:
+        appointment['_id'] = str(appointment['_id'])
+
+    return jsonify(appointments_list)
+
+
+#deleting appointment
+@app.route('/appointments/<string:appointment_id>', methods=['DELETE'])
+def delete_appointment(appointment_id):
+    try:
+        result = appointments_collection.delete_one({'_id': ObjectId(appointment_id)})
+        if result.deleted_count == 1:
+            return jsonify({'message': 'Appointment deleted successfully'}), 200
+        else:
+            return jsonify({'message': 'Appointment not found'}), 404
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({'message': 'Internal server error'}), 500
+
+
+#done button
+@app.route('/appointments/<string:appointment_id>', methods=['PATCH'])
+def update_appointment_status(appointment_id):
+    try:
+        # Extract updated appointment status from the request body
+        data = request.json
+        appointment_status = data.get('Appointment_status')
+        
+        # Update appointment status in the database
+        result = appointments_collection.update_one(
+            {'_id': ObjectId(appointment_id)},
+            {'$set': {'Appointment_status': appointment_status}}
+        )
+        
+        if result.modified_count == 1:
+            return jsonify({'message': 'Appointment status updated successfully'}), 200
+        else:
+            return jsonify({'message': 'Appointment not found'}), 404
+    except Exception as e:
+        print("Error:", e)
+        return jsonify({'message': 'Internal server error'}),500
 
 
 
+# Getting ratings for a specific mechanic ID
+@app.route('/ratings/<string:mech_id>', methods=['GET'])
+def get_ratings(mech_id):
+    try:
+        results = ratings_collection.find({"mechanic_id": mech_id})
+        ratings = []
+        for result in results:
+            # Extract the rating details from each result
+            rating = {
+                "mechanic_id": result["mechanic_id"],
+                "rating": result["rating"],
+                "comment": result["comment"],
+                "timestamp": result["timestamp"]
+            }
+            ratings.append(rating)
+        
+        if ratings:
+            return jsonify(ratings)
+        else:
+            return jsonify({"error": "Ratings not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    
+
+
 
 
 
 api.add_resource(AppointmentResource, '/appointment')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+  
+    app.run(host='0.0.0.0', port=8000)
