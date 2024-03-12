@@ -7,5 +7,3 @@ class Vehicle(Document):
     Engine_type = StringField(required=True)
     mileage = FloatField()
     firebase_uid = StringField(required=True, unique=True)
-
-from scripts.entities.mechanic import Mechanic

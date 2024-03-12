@@ -2,9 +2,7 @@ from flask import Flask, jsonify, request
 from mongoengine import connect
 from pymongo import MongoClient
 import os
-from dotenv import load_dotenv,find_dotenv
-from Persistance.mechanic import Mechanic
-from Persistance.vehicle import Vehicle
+from models.entities.vehicle import Vehicle
 from geopy.geocoders import Nominatim
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -13,9 +11,11 @@ from flask_restful import Resource,Api
 from bson import ObjectId
 from rake_nltk import Rake
 import nltk
-from Guidance import find_word_in_table
+from api.Guidance import find_word_in_table
 import json
-from ratings_and_reviews import calculate_average_rating, get_reviews
+from datetime import datetime
+from api.ratings_and_reviews import calculate_average_rating, get_reviews
+
 
 app = Flask(__name__)
 CORS(app) 
@@ -60,8 +60,7 @@ class AppointmentResource(Resource):
 
    
 
-
- #getting the nearest mechanics and their information from firebase
+#getting the nearest mechanics and their information from firebase
 @app.route('/nearest_mechanics', methods=['POST'])
 def get_nearest_mechanics():
     try:
@@ -116,7 +115,7 @@ def get_nearest_mechanics():
                     'address': mechanic.get('Address', 'N/A'),
                     'uid': mechanic.get('firebase_uid', 'N/A'),
                     'mech_id': mechanic.get('mechanic_id', 'N/A'),
-                    'average_rating': mechanic_average_rating
+                    'average_rating': str(mechanic_average_rating)
                 }
             
                 mechanics_list.append(combined_data)
@@ -150,6 +149,8 @@ def get_firestore_mechanic_details(firebase_uid):
         print(f"Error retrieving mechanic details from Firestore: {e}")
 
     return {}  # Return an empty dictionary if mechanic details not found or error occurred
+
+
 
 
 
@@ -323,7 +324,10 @@ def get_location():
         city = existing_mechanic.get('Area', '')
         location = existing_mechanic.get('Address', '')
         mech_id = existing_mechanic.get('mechanic_id')
-        return jsonify({"city": city, "address": location, "mechanic_id":mech_id}), 200
+        mechanic_average_rating = calculate_average_rating(mech_id)
+        
+        return jsonify({"city": city, "address": location, "mechanic_id":mech_id, "rating": mechanic_average_rating}), 200
+       
     else:
         return jsonify({"message": "Enter your location"}), 404
 
@@ -365,10 +369,24 @@ def get_appointments_by_mechanic_uid(mechanic_uid):
     return jsonify(appointments_list)
 
 
-#deleting appointment
+
+#delete
 @app.route('/appointments/<string:appointment_id>', methods=['DELETE'])
 def delete_appointment(appointment_id):
     try:
+        # Find the appointment to be deleted
+        appointment = appointments_collection.find_one({'_id': ObjectId(appointment_id)})
+        if not appointment:
+            return jsonify({'message': 'Appointment not found'}), 404
+
+        # Insert user data into the users collection
+        user_data = {
+            'user_uid': appointment.get('user_uid'),
+            'appointment_status': 'Appointment was declined'
+        }
+        users_collection.insert_one(user_data)
+
+        # Delete the appointment from the appointments collection
         result = appointments_collection.delete_one({'_id': ObjectId(appointment_id)})
         if result.deleted_count == 1:
             return jsonify({'message': 'Appointment deleted successfully'}), 200
@@ -376,30 +394,34 @@ def delete_appointment(appointment_id):
             return jsonify({'message': 'Appointment not found'}), 404
     except Exception as e:
         print("Error:", e)
-        return jsonify({'message': 'Internal server error'}), 500
+        return jsonify({'message': 'Internal server error'}),500
+    
 
-
-#done button
-@app.route('/appointments/<string:appointment_id>', methods=['PATCH'])
-def update_appointment_status(appointment_id):
+#done
+@app.route('/done/<string:appointment_id>', methods=['DELETE'])
+def done_appointment(appointment_id):
     try:
-        # Extract updated appointment status from the request body
-        data = request.json
-        appointment_status = data.get('Appointment_status')
-        
-        # Update appointment status in the database
-        result = appointments_collection.update_one(
-            {'_id': ObjectId(appointment_id)},
-            {'$set': {'Appointment_status': appointment_status}}
-        )
-        
-        if result.modified_count == 1:
-            return jsonify({'message': 'Appointment status updated successfully'}), 200
+        # Find the appointment to be deleted
+        appointment = appointments_collection.find_one({'_id': ObjectId(appointment_id)})
+        if not appointment:
+            return jsonify({'message': 'Appointment not found'}), 404
+
+        # Insert user data into the users collection
+        user_data = {
+            'user_uid': appointment.get('user_uid'),
+            'appointment_status': 'Appointment is done'
+        }
+        users_collection.insert_one(user_data)
+
+        # Delete the appointment from the appointments collection
+        result = appointments_collection.delete_one({'_id': ObjectId(appointment_id)})
+        if result.deleted_count == 1:
+            return jsonify({'message': 'Appointment completed successfully'}), 200
         else:
             return jsonify({'message': 'Appointment not found'}), 404
     except Exception as e:
         print("Error:", e)
-        return jsonify({'message': 'Internal server error'}),500
+        return jsonify({'message': 'Internal server error'}),500
 
 
 
@@ -427,12 +449,88 @@ def get_ratings(mech_id):
         return jsonify({"error": str(e)}), 500
 
 
+# Endpoint to receive ratings and reviews 
+@app.route('/submit_review', methods=['POST'])
+def submit_review():
+    data = request.json
+    mechanic_id = data.get('mechanic_id')
+    rating = data.get('rating')
+    comment = data.get('comment')
+
+    if mechanic_id and rating is not None and isinstance(rating, int) and comment:
+        # Add review to the database
+        add_review(mechanic_id, rating, comment)
+        return jsonify({"message": "Review submitted successfully"}), 200
+    else:
+        return jsonify({"error": "Invalid data. Please provide mechanic_id, rating (as an integer), and comment"}), 400
 
 
+
+# Function to add a new review
+def add_review(mechanic_id, rating, comment):
+    review = {
+        'mechanic_id': mechanic_id,
+        'rating': rating,
+        'comment': comment,
+        'timestamp': datetime.now()
+    }
+    ratings_collection.insert_one(review)
+
+
+#guidance
+@app.route('/search', methods=['POST'])
+def search():
+    data = request.get_json()
+    search_query = data.get('searchText', '')
+
+    collection = db["Guidelines"]
+
+    result_rows = find_word_in_table(collection, search_query)
+
+    response = {
+        'results': result_rows
+    }
+    return jsonify(response)
+
+
+#get users sppointment status
+@app.route('/get_appointment_status/<userid>', methods=['GET'])
+def get_appointment_status(userid):
+    try:
+        # Find the user in the users collection based on the user ID
+        user = users_collection.find_one({'user_uid': userid})
+
+        if user:
+            # Retrieve the appointment status value from the user document
+            appointment_status = user.get('appointment_status', 'Appointment status not found')
+            return jsonify({'userid': userid, 'appointment_status': appointment_status}), 200
+        else:
+            return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+#delete appointment status
+@app.route('/delete_status/<userid>', methods=['DELETE'])
+def delete_appointment_status(userid):
+    try:
+        # Find the user in the users collection based on the user ID
+        user = users_collection.find_one({'user_uid': userid})
+        
+        if user:
+            # If user is found, delete their appointment status
+            users_collection.delete_one({'user_uid': userid})
+            return "Appointment status deleted successfully.", 200
+        else:
+            return "User not found.", 404
+    except Exception as e:
+        return str(e), 500
 
 
 api.add_resource(AppointmentResource, '/appointment')
 
 if __name__ == '__main__':
-  
+    nltk.download("stopwords")
+    nltk.download('punkt')
     app.run(host='0.0.0.0', port=8000)
