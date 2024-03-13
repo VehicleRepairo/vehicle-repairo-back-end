@@ -12,9 +12,16 @@ df = pd.read_csv(dataset_path, header=0)
 df.rename(columns={"mileage_range": "nearest_thousandth_mileage"}, inplace=True)
 
 #Finding out unique values in brand, model and engine type
-#print(df["brand"].unique())
-#print(df["model"].unique())
-#print(df["engine_type"].unique())
+print("Brands: ", df["brand"].unique())
+print("Models: ", df["model"].unique())
+print("Engine types: ", df["engine_type"].unique())
+print()
+
+#Finding out the combination of vehicles from brand, model and engine type
+vehicles = df[['brand', 'model', 'engine_type']].drop_duplicates()
+print("Vehicle Combinations")
+print("--------------------")
+print(vehicles)
 
 #Object containing one-hot encoder
 ohe = OneHotEncoder()
