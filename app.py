@@ -22,7 +22,7 @@ CORS(app)
 api = Api(app)
 
 #mongodb connection
-client = MongoClient("mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
+client = MongoClient("mongodb+srv://senadi20220678:%23aaddbc%40123@vehicle-repairo.dlhnhh6.mongodb.net/")
 db = client['Vehicle_Repairo']
 mechanics_collection = db['mechanic']
 vehicle_collection = db['vehicle']
