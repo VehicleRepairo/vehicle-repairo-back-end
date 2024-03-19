@@ -29,7 +29,6 @@ vehicle_collection = db['vehicle']
 appointments_collection = db['appointment']
 ratings_collection = db['ratings']
 users_collection = db['users']
-vehicle_model_collection = db['vehicle_model_collection']
 
 mechanics_collection.create_index([("coordinates1", "2dsphere")])
 appointments_collection.create_index({ "Mech_uid": 1 })
@@ -58,13 +57,6 @@ class AppointmentResource(Resource):
         data = request.get_json()
         appointment_id = appointments_collection.insert_one(data).inserted_id
         return {'appointment_id': str(appointment_id)}, 201
-
-   
-#retrieving vehicles available for the ml model
-@app.route('/vehicles', methods=['GET'])
-def get_vehicles():
-    vehicles = list(vehicle_model_collection.find({}, {'_id': 0}))
-    return jsonify(vehicles)
 
 #getting the nearest mechanics and their information from firebase
 @app.route('/nearest_mechanics', methods=['POST'])
@@ -155,9 +147,6 @@ def get_firestore_mechanic_details(firebase_uid):
         print(f"Error retrieving mechanic details from Firestore: {e}")
 
     return {}  # Return an empty dictionary if mechanic details not found or error occurred
-
-
-
 
 
 #creating a vehicle
