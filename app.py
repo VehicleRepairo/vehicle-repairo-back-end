@@ -436,12 +436,11 @@ def get_ratings(mech_id):
             }
             ratings.append(rating)
         
-        if ratings:
-            return jsonify(ratings)
-        else:
-            return jsonify({"error": "Ratings not found"}), 404
+        return jsonify(ratings)  # Always return the ratings
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 # Endpoint to receive ratings and reviews 
