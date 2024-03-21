@@ -158,9 +158,9 @@ def create_vehicle():
     # Create a new vehicle document
     new_vehicle = Vehicle(
         vehicle_type=data.get('vehicle_type'),
-        brand=data.get('brand'),
-        model=data.get('model'),
-        engine_type=data.get('engine_type'),
+        Brand=data.get('Brand'),
+        Model=data.get('Model'),
+        Engine_type=data.get('Engine_type'),
         mileage=data.get('mileage'),
         firebase_uid=data.get('firebase_uid')
     )
@@ -168,9 +168,9 @@ def create_vehicle():
     # Convert the new_vehicle object into a dictionary
     vehicle_data = {
         'vehicle_type': new_vehicle.vehicle_type,
-        'brand': new_vehicle.brand,
-        'model': new_vehicle.model,
-        'engine_type': new_vehicle.engine_type,
+        'Brand': new_vehicle.Brand,
+        'Model': new_vehicle.Model,
+        'Engine_type': new_vehicle.Engine_type,
         'mileage': new_vehicle.mileage,
         'firebase_uid': new_vehicle.firebase_uid
     }
