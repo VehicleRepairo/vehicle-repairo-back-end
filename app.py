@@ -344,7 +344,6 @@ def create_appointment():
         'Service_Required': data.get('Service_Required'),
         'vehicle':data.get('vehicle') ,
         'Mech_uid': data.get('Mech_uid'),
-        'Appointment_status':"Pending"
 
     }
 
