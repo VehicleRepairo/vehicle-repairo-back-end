@@ -184,15 +184,15 @@ def create_vehicle():
 
 def load_models(service_types):
     loaded_models = {}
-    models_path = "./models"
+    models_path = "../models"
     for service_type in service_types:
         filename = os.path.join(models_path, f"{service_type}.pkl")
         loaded_model = joblib.load(filename)
         loaded_models[service_type] = loaded_model
     return loaded_models
 
-def make_predictions(user_vehicle_details, models):
-    user_df = pd.DataFrame([user_vehicle_details])
+def make_predictions(user_input, models):
+    user_df = pd.DataFrame([user_input])
     predictions = {}
     for service_type, model in models.items():
         prediction = model.predict(user_df)
@@ -201,34 +201,55 @@ def make_predictions(user_vehicle_details, models):
 
 def get_vehicle_info(user_firebase_uid):
     vehicle_info = vehicle_collection.find_one({"firebase_uid": user_firebase_uid})
-    if vehicle_info:
-        vehicle_info = {key: value.strip() if isinstance(value, str) else value for key, value in vehicle_info.items()}
-        vehicle_info['Brand'] = vehicle_info['Brand'].lower().strip()
-        vehicle_info['Model'] = vehicle_info['Model'].lower().strip()
-        vehicle_info['Engine_type'] = vehicle_info['Engine_type'].lower().strip()
     return vehicle_info
 
-# Route to predict service based on Firebase UID
+def preprocess_vehicle_info(vehicle_info):
+    if not vehicle_info:
+        return None
+    
+    vehicle_info = {key: value.strip() if isinstance(value, str) else value for key, value in vehicle_info.items()}
+    vehicle_info['Brand'] = vehicle_info['Brand'].lower().strip()
+    vehicle_info['Model'] = vehicle_info['Model'].lower().strip()
+    vehicle_info['Engine_type'] = vehicle_info['Engine_type'].lower().strip()
+    
+    return vehicle_info
+
+def get_one_hot_encoded_features(vehicle_info):
+    one_hot_encoded = {
+        'brand_honda': 1 if vehicle_info['Brand'] == 'honda' else 0,
+        'brand_toyota': 1 if vehicle_info['Brand'] == 'toyota' else 0,
+        'model_amaze': 1 if vehicle_info['Model'] == 'amaze' else 0,
+        'model_city': 1 if vehicle_info['Model'] == 'city' else 0,
+        'model_fortuner': 1 if vehicle_info['Model'] == 'fortuner' else 0,
+        'model_jazz': 1 if vehicle_info['Model'] == 'jazz' else 0,
+        'engine_type_diesel': 1 if vehicle_info['Engine_type'] == 'diesel' else 0,
+        'engine_type_petrol': 1 if vehicle_info['Engine_type'] == 'petrol' else 0,
+    }
+    return one_hot_encoded
+
+def get_nearest_mileage(mileage):
+    return ((mileage + 999) // 1000) * 1000
+
 @app.route('/predict_service/<string:firebase_uid>', methods=['POST'])
 def predict_service(firebase_uid):
-    user_firebase_uid = request.json.get('firebase_uid', None)
-    if not user_firebase_uid:
-        return jsonify({'error': 'Firebase UID not provided'}), 400
-
+    user_firebase_uid = firebase_uid
+    
     vehicle_info = get_vehicle_info(user_firebase_uid)
+    vehicle_info = preprocess_vehicle_info(vehicle_info)
 
     if not vehicle_info:
         return jsonify({'error': 'No vehicle information found for the user'}), 404
 
-    service_types = ['washer_plug_drain', 'dust_and_pollen_filter',
-                     'wheel_alignment_and_balancing', 'air_clean_filter', 'fuel_filter', 'spark_plug',
-                     'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid', 'brake_pads',
-                     'clutch', 'coolant']
-    models = load_models(service_types)
+    one_hot_encoded = get_one_hot_encoded_features(vehicle_info)
+    mileage = int(vehicle_info.get('mileage', 0))
+    nearest_mileage = get_nearest_mileage(mileage)
 
-    predictions = make_predictions(vehicle_info, models)
+    user_input = {**one_hot_encoded, 'mileage': mileage, 'nearest_thousandth_mileage': nearest_mileage}
+    models = load_models(service_types)
+    predictions = make_predictions(user_input, models)
 
     return jsonify(predictions)
+
 
 
 #change mileage
@@ -573,6 +594,10 @@ def delete_appointment_status(userid):
 api.add_resource(AppointmentResource, '/appointment')
 
 if __name__ == '__main__':
+    service_types = ['washer_plug_drain', 'dust_and_pollen_filter',
+                     'wheel_alignment_and_balancing', 'air_clean_filter', 'fuel_filter', 'spark_plug',
+                     'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid', 'brake_pads',
+                     'clutch', 'coolant']
     nltk.download("stopwords")
     nltk.download('punkt')
     app.run(host='0.0.0.0', port=8000)
