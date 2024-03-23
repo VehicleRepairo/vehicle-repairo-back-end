@@ -182,8 +182,8 @@ def create_vehicle():
 
 
 #firebase uid from front end to predict service
-@app.route('/predict_service', methods=['POST'])
-def predict_service():
+@app.route('/predict_service/<string:firebase_uid>', methods=['POST'])
+def predict_service(firebase_uid):
     user_firebase_uid = request.json.get('firebase_uid', None)
     if not user_firebase_uid:
         return jsonify({'error': 'Firebase UID not provided'}), 400
