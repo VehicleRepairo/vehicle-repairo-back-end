@@ -15,7 +15,8 @@ from api.Guidance import find_word_in_table
 import json
 from datetime import datetime
 from api.ratings_and_reviews import calculate_average_rating, get_reviews
-from scripts.service_prediction import get_vehicle_info, make_predictions, load_models
+import joblib
+import pandas as pd
 
 app = Flask(__name__)
 CORS(app) 
@@ -181,7 +182,33 @@ def create_vehicle():
     return jsonify({"message": "Vehicle created successfully"}), 201
 
 
-#firebase uid from front end to predict service
+def load_models(service_types):
+    loaded_models = {}
+    models_path = "models"
+    for service_type in service_types:
+        filename = os.path.join(models_path, f"{service_type}.pkl")
+        loaded_model = joblib.load(filename)
+        loaded_models[service_type] = loaded_model
+    return loaded_models
+
+def make_predictions(user_vehicle_details, models):
+    user_df = pd.DataFrame([user_vehicle_details])
+    predictions = {}
+    for service_type, model in models.items():
+        prediction = model.predict(user_df)
+        predictions[service_type] = prediction
+    return predictions
+
+def get_vehicle_info(user_firebase_uid):
+    vehicle_info = vehicle_collection.find_one({"firebase_uid": user_firebase_uid})
+    if vehicle_info:
+        vehicle_info = {key: value.strip() if isinstance(value, str) else value for key, value in vehicle_info.items()}
+        vehicle_info['Brand'] = vehicle_info['Brand'].lower().strip()
+        vehicle_info['Model'] = vehicle_info['Model'].lower().strip()
+        vehicle_info['Engine_type'] = vehicle_info['Engine_type'].lower().strip()
+    return vehicle_info
+
+# Route to predict service based on Firebase UID
 @app.route('/predict_service/<string:firebase_uid>', methods=['POST'])
 def predict_service(firebase_uid):
     user_firebase_uid = request.json.get('firebase_uid', None)
