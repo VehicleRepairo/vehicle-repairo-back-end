@@ -184,7 +184,7 @@ def create_vehicle():
 
 def load_models(service_types):
     loaded_models = {}
-    models_path = "models"
+    models_path = "./models"
     for service_type in service_types:
         filename = os.path.join(models_path, f"{service_type}.pkl")
         loaded_model = joblib.load(filename)
