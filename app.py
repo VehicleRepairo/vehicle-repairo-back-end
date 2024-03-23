@@ -15,7 +15,7 @@ from api.Guidance import find_word_in_table
 import json
 from datetime import datetime
 from api.ratings_and_reviews import calculate_average_rating, get_reviews
-
+from scripts.service_prediction import get_vehicle_info, make_predictions, load_models
 
 app = Flask(__name__)
 CORS(app) 
@@ -180,6 +180,28 @@ def create_vehicle():
 
     return jsonify({"message": "Vehicle created successfully"}), 201
 
+
+#firebase uid from front end to predict service
+@app.route('/predict_service', methods=['POST'])
+def predict_service():
+    user_firebase_uid = request.json.get('firebase_uid', None)
+    if not user_firebase_uid:
+        return jsonify({'error': 'Firebase UID not provided'}), 400
+
+    vehicle_info = get_vehicle_info(user_firebase_uid)
+
+    if not vehicle_info:
+        return jsonify({'error': 'No vehicle information found for the user'}), 404
+
+    service_types = ['washer_plug_drain', 'dust_and_pollen_filter',
+                     'wheel_alignment_and_balancing', 'air_clean_filter', 'fuel_filter', 'spark_plug',
+                     'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid', 'brake_pads',
+                     'clutch', 'coolant']
+    models = load_models(service_types)
+
+    predictions = make_predictions(vehicle_info, models)
+
+    return jsonify(predictions)
 
 
 #change mileage
