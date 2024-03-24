@@ -283,7 +283,6 @@ def predict_service(firebase_uid):
     return jsonify(predictions)
 
 
-
 #change mileage
 @app.route('/vehicle/<firebase_uid>', methods=['PATCH'])
 def update_vehicle(firebase_uid):
