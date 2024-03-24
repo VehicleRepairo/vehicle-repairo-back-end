@@ -244,9 +244,7 @@ def predict_service(firebase_uid):
     if not vehicle_info:
         return jsonify({'error': 'No vehicle information found for the user'}), 404
 
-    mileage = int(vehicle_info.get('mileage', 0))
-    if mileage < 5000 or mileage > 104999:
-        return jsonify({'error': 'Cannot predict for mileage less than 5000 or above 105000'}), 404
+   
 
     vehicle_type = vehicle_info.get('vehicle_type', '').strip().lower()
     if vehicle_type != "car":
@@ -273,6 +271,10 @@ def predict_service(firebase_uid):
         return jsonify({'error': 'Feature not available for Toyota Fortuner with engine type other than diesel'}), 404
 
     one_hot_encoded = get_one_hot_encoded_features(vehicle_info)
+
+    mileage = int(vehicle_info.get('mileage', 0))
+    if mileage < 5000 or mileage > 104999:
+        return jsonify({'error': 'Cannot predict for mileage less than 5000 or above 105000'}), 404
 
     nearest_mileage = get_nearest_mileage(mileage)
     user_input = {**one_hot_encoded, 'mileage': mileage, 'nearest_thousandth_mileage': nearest_mileage}
