@@ -18,6 +18,7 @@ from api.ratings_and_reviews import calculate_average_rating, get_reviews
 import joblib
 import pandas as pd
 
+
 app = Flask(__name__)
 CORS(app) 
 api = Api(app)
@@ -42,8 +43,6 @@ connect(host=f"mongodb+srv://senadi20220678:%23abc%40123@vehicle-repairo.dlhnhh6
 #firebase connection
 cred = credentials.Certificate("./vehicle-repairo-firebase-adminsdk-cmk26-3ac0077dd7.json")
 firebase_admin.initialize_app(cred)
-
-
 
 class AppointmentResource(Resource):
 
@@ -181,10 +180,14 @@ def create_vehicle():
 
     return jsonify({"message": "Vehicle created successfully"}), 201
 
+service_types = ['washer_plug_drain', 'dust_and_pollen_filter',
+                'wheel_alignment_and_balancing', 'air_clean_filter', 'fuel_filter', 'spark_plug',
+                'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid', 'brake_pads',
+                'clutch', 'coolant']
 
 def load_models(service_types):
     loaded_models = {}
-    models_path = "../models"
+    models_path = "models"
     for service_type in service_types:
         filename = os.path.join(models_path, f"{service_type}.pkl")
         loaded_model = joblib.load(filename)
@@ -196,7 +199,7 @@ def make_predictions(user_input, models):
     predictions = {}
     for service_type, model in models.items():
         prediction = model.predict(user_df)
-        predictions[service_type] = prediction
+        predictions[service_type] = prediction.tolist()
     return predictions
 
 def get_vehicle_info(user_firebase_uid):
@@ -594,10 +597,6 @@ def delete_appointment_status(userid):
 api.add_resource(AppointmentResource, '/appointment')
 
 if __name__ == '__main__':
-    service_types = ['washer_plug_drain', 'dust_and_pollen_filter',
-                     'wheel_alignment_and_balancing', 'air_clean_filter', 'fuel_filter', 'spark_plug',
-                     'brake_fluid', 'brake_and_clutch_oil', 'transmission_fluid', 'brake_pads',
-                     'clutch', 'coolant']
     nltk.download("stopwords")
     nltk.download('punkt')
     app.run(host='0.0.0.0', port=8000)
