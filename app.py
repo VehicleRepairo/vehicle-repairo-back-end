@@ -242,35 +242,35 @@ def predict_service(firebase_uid):
     vehicle_info = preprocess_vehicle_info(vehicle_info)
 
     if not vehicle_info:
-        return jsonify({'error': 'No vehicle information found for the user'}), 200
+        return jsonify({'error': 'No vehicle information found for the user'}), 404
 
     mileage = int(vehicle_info.get('mileage', 0))
     if mileage < 5000 or mileage > 104999:
-        return jsonify({'error': 'Cannot predict for mileage less than 5000 or above 105000'}), 200
+        return jsonify({'error': 'Cannot predict for mileage less than 5000 or above 105000'}), 404
 
     vehicle_type = vehicle_info.get('vehicle_type', '').strip().lower()
     if vehicle_type != "car":
-        return jsonify({'error': 'Feature not available for non-car vehicles'}), 200
+        return jsonify({'error': 'Feature not available for non-car vehicles'}), 404
 
     brand = vehicle_info.get('Brand', '').strip().lower()
     if brand not in ["honda", "toyota"]:
-        return jsonify({'error': 'Feature not available for non-Honda/Toyota vehicles'}), 200
+        return jsonify({'error': 'Feature not available for non-Honda/Toyota vehicles'}), 404
 
     if brand == "honda":
         model = vehicle_info.get('Model', '').strip().lower()
         if model not in ["amaze", "city", "jazz"]:
-            return jsonify({'error': 'Feature not available for this Honda model'}), 200
+            return jsonify({'error': 'Feature not available for this Honda model'}), 404
     elif brand == "toyota":
         model = vehicle_info.get('Model', '').strip().lower()
         if model != "fortuner":
-            return jsonify({'error': 'Feature not available for this Toyota model'}), 200
+            return jsonify({'error': 'Feature not available for this Toyota model'}), 404
 
     engine_type = vehicle_info.get('Engine_type', '').strip().lower()
     if brand == "honda" and engine_type != "petrol" and engine_type != "diesel":
-        return jsonify({'error': 'Feature not available for Honda models with engine type other than petrol and diesel'}), 200
+        return jsonify({'error': 'Feature not available for Honda models with engine type other than petrol and diesel'}), 404
 
     if brand == "toyota" and model == "fortuner" and engine_type != "diesel":
-        return jsonify({'error': 'Feature not available for Toyota Fortuner with engine type other than diesel'}), 200
+        return jsonify({'error': 'Feature not available for Toyota Fortuner with engine type other than diesel'}), 404
 
     one_hot_encoded = get_one_hot_encoded_features(vehicle_info)
 
