@@ -199,7 +199,7 @@ def make_predictions(user_input, models):
     predictions = {}
     for service_type, model in models.items():
         prediction = model.predict(user_df)
-        if prediction[0]:  # Check if the prediction is True
+        if prediction[0]:
             predictions[service_type] = bool(prediction[0])
     return predictions
 
